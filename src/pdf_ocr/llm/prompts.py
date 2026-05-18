@@ -28,7 +28,13 @@ Rules:
       y = top  / page_height
       w = width  / page_width
       h = height / page_height
-   Add a small margin (~1-2%) so nothing gets clipped.
+   The bbox MUST fit *snugly* around the visual boundary of the figure/table.
+   - Do NOT add margin or "safety padding"; the calling code does any padding it wants.
+   - Do NOT include surrounding body paragraphs, page numbers, headers, footers, or
+     adjacent text columns. If a caption line ("그림 1.", "표 2") sits just outside
+     the figure border, leave it OUTSIDE the bbox — its text goes into `caption`.
+   - When in doubt, prefer to slightly UNDER-cover the figure rather than to leak
+     surrounding text into the box.
 4. If a figure or table has a nearby caption ("그림 1.", "Figure 2", "표 3" …), put that
    caption string in `caption` of the same block. Do NOT also create a separate text block
    for the caption.

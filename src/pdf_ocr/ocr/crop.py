@@ -23,8 +23,18 @@ class Asset:
     rel_path: str         # path relative to the .md (used in the link)
 
 
-def _bbox_to_pixels(bbox: BBox, w: int, h: int, *, pad: float = 0.01) -> tuple[int, int, int, int]:
-    """Convert a normalized bbox to (left, top, right, bottom) pixel coords with a small pad."""
+def _bbox_to_pixels(
+    bbox: BBox, w: int, h: int, *, pad: float = 0.0
+) -> tuple[int, int, int, int]:
+    """Convert a normalized bbox to (left, top, right, bottom) pixel coords.
+
+    ``pad`` is the fraction of page width/height to extend (positive) or shrink
+    (negative) the box by on each side. We default to **0** because VLM bboxes
+    already err on the loose side — extra padding tends to drag surrounding
+    paragraph text into figure crops. Use a small negative value (e.g. -0.005)
+    if you'd rather lose a few pixels of the figure border than risk including
+    the caption line below it.
+    """
     x = max(0.0, bbox.x - pad)
     y = max(0.0, bbox.y - pad)
     x2 = min(1.0, bbox.x + bbox.w + pad)

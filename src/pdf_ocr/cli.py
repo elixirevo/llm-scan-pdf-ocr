@@ -13,7 +13,7 @@ from .pipeline import run_pipeline
 from .utils.config import load_config
 from .utils.logging import setup_logging
 
-app = typer.Typer(add_completion=False, help="Scanned PDF → Markdown via a local VLM.")
+app = typer.Typer(add_completion=False, help="Scanned PDF → Markdown via a local VLM or MinerU.")
 
 
 @app.command()
@@ -23,17 +23,22 @@ def run(
     config: Optional[Path] = typer.Option(
         None, "-c", "--config", help="Config YAML. Defaults to configs/default.yaml."
     ),
-    dpi: Optional[int] = typer.Option(None, "--dpi", help="Override render DPI."),
+    backend: Optional[str] = typer.Option(
+        None, "-b", "--backend", help="Override extraction backend ('vlm' or 'mineru')."
+    ),
+    dpi: Optional[int] = typer.Option(None, "--dpi", help="Override render DPI (vlm backend only)."),
     concurrency: Optional[int] = typer.Option(
-        None, "--concurrency", help="Override max in-flight VLM requests."
+        None, "--concurrency", help="Override max in-flight VLM requests (vlm backend only)."
     ),
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Debug logging."),
 ) -> None:
-    """OCR a scanned PDF into Markdown using a local VLM."""
+    """OCR a PDF into Markdown using either a local VLM or MinerU."""
     load_dotenv()
     setup_logging(verbose=verbose)
     cfg = load_config(config)
 
+    if backend is not None:
+        cfg["backend"] = backend
     if dpi is not None:
         cfg["render"]["dpi"] = dpi
     if concurrency is not None:

@@ -1,0 +1,10 @@
+extends: default.yaml
+
+backend: mineru
+
+mineru:
+  backend: pipeline   # safest default for Korean scans
+  lang: korean
+  method: auto
+  # Force GPU and bound VRAM if you have multiple processes sharing the card:
+  # extra_args: ["-d", "cuda", "--vram", "16"]

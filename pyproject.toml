@@ -34,6 +34,13 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.11.0",
 ]
+# MinerU is heavy and pulls torch + paddle. Install only if you want the mineru backend:
+#   uv sync --extra mineru
+# Some users will prefer the install command from MinerU's docs:
+#   uv pip install --extra-index-url https://wheels.myhloli.com 'mineru[core]'
+mineru = [
+    "mineru[core]>=2.0.0",
+]
 
 [project.scripts]
 pdf-ocr = "pdf_ocr.cli:app"

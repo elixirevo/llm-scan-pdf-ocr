@@ -1,4 +1,7 @@
-"""When one page errors, the rest should still finish and be written."""
+"""When one page errors, the rest should still finish and be written.
+
+Exercises the VLM backend directly with a fake client so no server is needed.
+"""
 
 from __future__ import annotations
 
@@ -7,19 +10,19 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from pdf_ocr.backends import vlm as vlm_backend
+from pdf_ocr.backends.vlm import VLMBackend
 from pdf_ocr.pdf.page import Page
-from pdf_ocr.pipeline import run_pipeline
 
 
 class _FakeClient:
-    """Mimics VLMClient.chat_image_json. Page 2 always fails."""
+    """Mimics VLMClient. Page 2 always fails."""
 
     def __init__(self) -> None:
         self.calls = 0
 
     async def chat_image_json(self, image, *, system, user, max_tokens=None):
         self.calls += 1
-        # Find page number from the user prompt ("Page number: N")
         page_no = int(user.splitlines()[0].split(":")[1].strip())
         if page_no == 2:
             raise RuntimeError("simulated VLM failure on page 2")
@@ -43,13 +46,7 @@ def _make_pages(n: int) -> list[Page]:
 @pytest.mark.asyncio
 async def test_failed_page_does_not_kill_pipeline(tmp_path: Path, monkeypatch):
     fake = _FakeClient()
-
-    # Patch the client factory used inside run_pipeline.
-    import pdf_ocr.pipeline as pipeline_mod
-
-    monkeypatch.setattr(
-        pipeline_mod, "VLMClient", lambda cfg: fake
-    )
+    monkeypatch.setattr(vlm_backend, "VLMClient", lambda cfg: fake)
 
     cfg = {
         "llm": {
@@ -65,14 +62,14 @@ async def test_failed_page_does_not_kill_pipeline(tmp_path: Path, monkeypatch):
             "asset_name": "p{page:03d}_{kind}{idx:02d}.png",
         },
     }
-
-    pages = _make_pages(3)
-    pdf_path = tmp_path / "doc.pdf"  # name only; render is bypassed via pages=
+    pdf_path = tmp_path / "doc.pdf"
     pdf_path.touch()
+    pages = _make_pages(3)
 
-    md_path = await run_pipeline(pdf_path, tmp_path / "out", cfg, pages=pages)
-
-    text = md_path.read_text(encoding="utf-8")
+    result = await VLMBackend().run(pdf_path, tmp_path / "out", cfg, pages=pages)
+    text = result.markdown_path.read_text(encoding="utf-8")
     assert "page 1 body" in text
     assert "page 3 body" in text
     assert "페이지 2 OCR 실패" in text
+    assert result.pages_total == 3
+    assert result.pages_failed == 1
