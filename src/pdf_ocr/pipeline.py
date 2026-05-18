@@ -17,6 +17,7 @@ from rich.progress import (
 )
 
 from .llm.openai_compat import VLMClient, VLMConfig
+from .llm.schema import Block, PageLayout
 from .ocr.crop import crop_assets
 from .ocr.extractor import extract_page
 from .pdf.page import Page
@@ -33,6 +34,25 @@ def _build_paths(pdf_path: Path, out_dir: Path, output_cfg: dict) -> tuple[Path,
     return md_path, images_dir
 
 
+def _failed_page_result(page_no: int, err: Exception) -> PageResult:
+    """Build a placeholder PageResult for a page whose VLM call failed.
+
+    Lets the rest of the document still render with a clear marker that this
+    page didn't make it through OCR.
+    """
+    layout = PageLayout(
+        page_no=page_no,
+        blocks=[
+            Block(
+                type="text",
+                order=1,
+                text=f"*[페이지 {page_no} OCR 실패: {err.__class__.__name__}]*",
+            )
+        ],
+    )
+    return PageResult(layout=layout, assets=[])
+
+
 async def _process_one(
     page: Page,
     *,
@@ -41,8 +61,13 @@ async def _process_one(
     asset_name: str,
     sem: asyncio.Semaphore,
 ) -> PageResult:
-    async with sem:
-        layout = await extract_page(client, page)
+    try:
+        async with sem:
+            layout = await extract_page(client, page)
+    except Exception as e:
+        log.error("page %d failed: %s", page.page_no, e)
+        return _failed_page_result(page.page_no, e)
+
     # Cropping is CPU-bound and fast; do it outside the semaphore.
     assets = crop_assets(page, layout, images_dir=images_dir, asset_name=asset_name)
     log.info(
@@ -86,8 +111,6 @@ async def run_pipeline(
 
     sem = asyncio.Semaphore(int(cfg["pipeline"]["concurrency"]))
 
-    # Materialize pages lazily into tasks as they're rendered so we don't hold
-    # the whole document in memory at once. asyncio.gather preserves order.
     tasks: list[asyncio.Task[PageResult]] = []
     progress_columns = [
         SpinnerColumn(),
@@ -110,7 +133,6 @@ async def run_pipeline(
                     )
                 ))
                 progress.update(scan_task, total=len(tasks))
-            # Wait for all in submission order.
             results: list[PageResult] = []
             for t in tasks:
                 results.append(await t)
@@ -119,6 +141,15 @@ async def run_pipeline(
         await client.aclose()
 
     results.sort(key=lambda r: r.layout.page_no)
+    failed = sum(
+        1 for r in results
+        if len(r.layout.blocks) == 1
+        and r.layout.blocks[0].text
+        and r.layout.blocks[0].text.startswith("*[페이지 ")
+    )
     write_document(results, md_path, title=pdf_path.stem)
-    log.info("wrote %s (%d pages)", md_path, len(results))
+    if failed:
+        log.warning("wrote %s (%d pages, %d failed)", md_path, len(results), failed)
+    else:
+        log.info("wrote %s (%d pages)", md_path, len(results))
     return md_path

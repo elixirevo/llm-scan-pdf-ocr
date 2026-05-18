@@ -4,9 +4,10 @@ llm:
   base_url: http://localhost:8000/v1
   model: Qwen/Qwen3-VL-8B-Instruct
   use_response_format: true
-  # Server is launched with --max-model-len 16384.
-  # Page image (~1-2k tokens) + system prompt (~500) leaves ~12k for output JSON.
+  # Server launched with --max-model-len 12288 on RTX 3090 Ti (WSL).
+  # Page image (~2k tokens) + system prompt (~500) leaves ~9k for output JSON.
   max_tokens: 4096
 
 pipeline:
-  concurrency: 4
+  # Must be <= server's --max-num-seqs.
+  concurrency: 2

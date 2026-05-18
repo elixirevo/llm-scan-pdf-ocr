@@ -54,6 +54,9 @@ def crop_assets(
     for block in layout.blocks:
         if block.type not in ("figure", "table") or block.bbox is None:
             continue
+        if block.bbox.is_degenerate:
+            # Clamping squashed the box to nothing — skip without warning.
+            continue
         if block.type == "figure":
             fig_idx += 1
             kind, idx = "fig", fig_idx

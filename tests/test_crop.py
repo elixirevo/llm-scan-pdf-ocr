@@ -53,3 +53,19 @@ def test_crop_skips_blocks_without_bbox(tmp_path: Path):
         asset_name="p{page:03d}_{kind}{idx:02d}.png",
     )
     assert assets == []
+
+
+def test_crop_skips_degenerate_bbox_after_clamping(tmp_path: Path):
+    """A bbox that gets squashed to zero area by clamping should not produce a file."""
+    page = _solid_page()
+    # x=1.0 forces w to clamp to 0 → degenerate
+    layout = PageLayout(
+        page_no=1,
+        blocks=[Block(type="figure", order=1, bbox=BBox(x=1.0, y=0.0, w=0.5, h=0.5))],
+    )
+    assets = crop_assets(
+        page, layout,
+        images_dir=tmp_path / "imgs",
+        asset_name="p{page:03d}_{kind}{idx:02d}.png",
+    )
+    assert assets == []

@@ -2,37 +2,49 @@
 
 Coordinates are **[0, 1] normalized**, origin top-left:
     x, y, w, h ∈ [0, 1], x+w ≤ 1, y+h ≤ 1
-This avoids ambiguity when the model resizes the input internally.
+We intentionally *clamp* slightly out-of-range boxes (rather than reject them)
+because VLMs routinely overshoot edge-touching figures by a few percent.
 """
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
+
+
+def _clip01(v: float) -> float:
+    if v < 0.0:
+        return 0.0
+    if v > 1.0:
+        return 1.0
+    return v
 
 
 class BBox(BaseModel):
-    x: float = Field(ge=0.0, le=1.0)
-    y: float = Field(ge=0.0, le=1.0)
-    w: float = Field(gt=0.0, le=1.0)
-    h: float = Field(gt=0.0, le=1.0)
+    x: float
+    y: float
+    w: float
+    h: float
 
-    @field_validator("w")
-    @classmethod
-    def _w_fits(cls, v: float, info) -> float:  # noqa: ANN001
-        x = info.data.get("x", 0.0)
-        if x + v > 1.0001:
-            raise ValueError(f"bbox overflows width: x={x}, w={v}")
-        return v
+    @model_validator(mode="after")
+    def _clamp(self) -> "BBox":
+        # Clip individual coordinates to [0, 1].
+        self.x = _clip01(self.x)
+        self.y = _clip01(self.y)
+        self.w = _clip01(self.w)
+        self.h = _clip01(self.h)
+        # Ensure the box fits inside the page; shrink width/height if it overflows.
+        if self.x + self.w > 1.0:
+            self.w = max(0.0, 1.0 - self.x)
+        if self.y + self.h > 1.0:
+            self.h = max(0.0, 1.0 - self.y)
+        return self
 
-    @field_validator("h")
-    @classmethod
-    def _h_fits(cls, v: float, info) -> float:  # noqa: ANN001
-        y = info.data.get("y", 0.0)
-        if y + v > 1.0001:
-            raise ValueError(f"bbox overflows height: y={y}, h={v}")
-        return v
+    @property
+    def is_degenerate(self) -> bool:
+        """True if the box has zero (or near-zero) area after clamping."""
+        return self.w <= 0.001 or self.h <= 0.001
 
 
 BlockType = Literal["text", "figure", "table"]
