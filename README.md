@@ -76,6 +76,36 @@ src/pdf_ocr/
 └── utils/                 # logging / retry / concurrency
 ```
 
+## 트러블슈팅
+
+### `BadRequestError: max_tokens=… cannot be greater than max_model_len=…`
+
+vLLM/SGLang 서버의 컨텍스트 윈도우가 페이지 1장 + OCR 출력을 담기에 너무 작습니다.
+서버를 충분한 컨텍스트로 다시 띄우세요:
+
+```bash
+vllm serve Qwen/Qwen3-VL-8B-Instruct \
+  --dtype bfloat16 \
+  --max-model-len 32768 \      # ← 이 값이 핵심
+  --gpu-memory-utilization 0.85 \
+  --port 8000
+```
+
+그리고 config의 `llm.max_tokens`가 `max-model-len - 입력토큰(이미지 1~2k + 프롬프트 ~1k)`
+보다 작아야 합니다. 기본값 4096이면 대부분의 한국어 페이지를 담아냅니다. 페이지가 매우
+조밀하다면 8192로 올려도 됩니다.
+
+### 페이지가 잘려서 OCR이 중간에 끊김
+
+`llm.max_tokens`를 늘리거나, `render.dpi`를 200 → 250으로 올려보세요. 단 DPI를 올리면
+입력 토큰도 늘어나니 `max-model-len`도 함께 키워야 합니다.
+
+### llama.cpp에서 빈 응답/JSON 깨짐
+
+llama.cpp는 `response_format=json_schema`를 강제하지 못하므로 `configs/llamacpp.yaml`은
+`use_response_format: false`로 설정돼 있습니다. 그래도 깨지면 `--grammar-file` 옵션으로
+GBNF grammar를 강제하는 방법이 있습니다.
+
 ## 개발
 
 ```bash

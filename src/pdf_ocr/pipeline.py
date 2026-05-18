@@ -81,6 +81,7 @@ async def run_pipeline(
         use_response_format=vlm_cfg.get("use_response_format", True),
         timeout=float(vlm_cfg.get("timeout", 180)),
         max_retries=int(vlm_cfg.get("max_retries", 2)),
+        max_tokens=int(vlm_cfg.get("max_tokens", 2048)),
     ))
 
     sem = asyncio.Semaphore(int(cfg["pipeline"]["concurrency"]))

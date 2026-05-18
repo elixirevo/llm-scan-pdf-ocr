@@ -5,6 +5,8 @@ llm:
   model: qwen3-vl-8b-instruct        # whatever name your llama-server reports
   # llama.cpp doesn't enforce JSON schema reliably; rely on prompt + Pydantic validation.
   use_response_format: false
+  # Match llama-server's -c (context size) when sizing this.
+  max_tokens: 2048
 
 pipeline:
   # llama.cpp typically slower; lower concurrency.
