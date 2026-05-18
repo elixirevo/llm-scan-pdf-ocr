@@ -1,0 +1,33 @@
+# Defaults used when no --config is passed.
+# Backend-specific files in this folder override these values.
+
+llm:
+  base_url: ${LLM_BASE_URL:-http://localhost:8000/v1}
+  api_key:  ${LLM_API_KEY:-sk-local}
+  model:    ${LLM_MODEL:-Qwen/Qwen3-VL-8B-Instruct}
+  # JSON schema enforcement. vLLM/SGLang support it; llama.cpp falls back to prompt-only.
+  use_response_format: true
+  # Per-request timeout in seconds.
+  timeout: 180
+  # Max retries on transient failure / schema parse failure.
+  max_retries: 2
+
+render:
+  # DPI for PDF→image. 200 is a sweet spot for Korean scans; bump to 300 for dense text.
+  dpi: 200
+  # Cap the longest image side before sending to the VLM (None = no cap).
+  # Qwen3-VL handles large images, but bigger = slower + more tokens.
+  max_side: 2048
+  # Image format/quality used when sending to the VLM.
+  image_format: "png"
+
+pipeline:
+  # Concurrent in-flight VLM requests. 4 is safe on a single 3090 Ti with bf16.
+  concurrency: 4
+
+output:
+  # ${stem} is replaced with the input PDF filename without extension.
+  markdown_path: "${stem}.md"
+  images_dir: "${stem}_images"
+  # Filename pattern for cropped figures/tables.
+  asset_name: "p{page:03d}_{kind}{idx:02d}.png"

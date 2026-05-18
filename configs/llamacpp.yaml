@@ -1,0 +1,15 @@
+extends: default.yaml
+
+llm:
+  base_url: http://localhost:8080/v1
+  model: qwen3-vl-8b-instruct        # whatever name your llama-server reports
+  # llama.cpp doesn't enforce JSON schema reliably; rely on prompt + Pydantic validation.
+  use_response_format: false
+
+pipeline:
+  # llama.cpp typically slower; lower concurrency.
+  concurrency: 2
+
+render:
+  # llama.cpp's vision projector likes smaller inputs.
+  max_side: 1536
